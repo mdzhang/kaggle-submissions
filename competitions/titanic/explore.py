@@ -48,7 +48,7 @@ cat_cols = ['Pclass', 'Sex', 'Embarked', 'CabinCode']
 df[cat_cols] = df[cat_cols].astype('category')
 
 num_cols = ['Age', 'SibSp', 'Parch', 'Fare', 'CabinNumber']
-# other: Cabin, Name, PassengerId, Ticket
+# other: Name, PassengerId, Ticket
 
 #  plt.cla()
 #  plt.clf()
@@ -92,6 +92,7 @@ that there is
 
     a positive correlation between survival and:
         Parch
+        CabinNumber
 
     a negative correlation between survival and:
         age
@@ -102,6 +103,8 @@ that women were much more likely to survive
 that point of embarkment and surivval are related w/
     C being most likely to survive
     followed by Q and lastly S
+
+that cabin codes G, A, C were also less likely to survive
 """
 
 df2 = df[['Survived', 'CabinNumber']].dropna()
@@ -112,9 +115,27 @@ df3 = df[['Survived', 'CabinCode']].dropna()
 df3['CabinCode'] = df3['CabinCode'].astype('category')
 sns.catplot(x='CabinCode', y='Survived', data=df3, kind='bar')
 
-# TODO
-df2 = df[['Survived', 'CabinNumber', 'CabinCode']].dropna()
-df2['CabinNumber'] = df2['CabinNumber'].astype('int64')
-df2['CabinCode'] = df2['CabinCode'].astype('category')
-sns.regplot(
-    x='CabinNumber', y='Survived', hue='CabinCode', data=df2, logistic=True)
+
+def plot_cabin_codes(df):
+    """Plots logreg of survival against cabin number, split by
+    cabin code, with each plot in a 2 x 4 grid
+    """
+    df2 = df[['Survived', 'CabinNumber', 'CabinCode']].dropna()
+    df2['CabinNumber'] = df2['CabinNumber'].astype('int64')
+    df2['CabinCode'] = df2['CabinCode'].astype('category')
+
+    fig, axes = plt.subplots(nrows=2, ncols=4)
+
+    for idx, cc in enumerate(sorted(df2['CabinCode'].unique())):
+        df3 = df2[df2['CabinCode'] == cc]
+        row = 1 if idx > 3 else 0
+        col = (idx - 4) if idx > 3 else idx
+
+        ax = sns.regplot(
+            x='CabinNumber',
+            y='Survived',
+            data=df3,
+            logistic=True,
+            ax=axes[row, col])
+        ax.set(xlabel=cc)
+    plt.show()
