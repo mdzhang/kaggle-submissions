@@ -23,6 +23,7 @@ EMPTY_CABIN_SER = pd.Series({
 
 
 def extract_code(val):
+    """Extract cabin code and number e.g. B26 => (B, 26)"""
     if val is None:
         return EMPTY_CABIN_SER
     # TODO: maybe account for multiple cabins, and average
@@ -37,10 +38,63 @@ def extract_code(val):
 
 df[['CabinCode', 'CabinNumber']] = df['Cabin'].apply(extract_code)
 
+
+def extract_name(val):
+    pat = re.compile('^(.+?), (.+?)\. (.+)\s*$')
+    m = re.match(pat, val)
+    title = m.group(2)
+
+    # default matches format <last name>, <title>. <first name>
+    last_name = m.group(1)
+    # TODO: might catch nicknames
+    first_name = m.group(3)
+
+    if title == 'Mrs':
+        rest = m.group(3)
+
+        # <husband name>(<wife name><ending>
+        # where ending is ')' or '...'
+        pat2 = re.compile('^(.*)\s*\((.+)(\)|\.\.\.)\s*$')
+        m2 = re.match(pat2, rest)
+        if m2:
+            # TODO: might be truncated if ends with ...
+            name = m2.group(2)
+            fragments = name.split()
+            first_name = fragments[0]
+            last_name = fragments[-1]
+
+    # remove nicknames e.g. Florence "Fannie"
+    pat3 = re.compile('^(.+?)\s*?(".+")?$')
+    m3 = re.match(pat3, first_name)
+    if m3:
+        first_name = m3.group(1)
+    return (title, first_name, last_name)
+
+
+def get_name_df(df):
+    def extract_fragments(val):
+        title, first_name, last_name = extract_name(val)
+        return pd.Series({
+            'FirstName': first_name,
+            'LastName': last_name,
+            'Title': title,
+        })
+
+    return df['Name'].apply(extract_fragments)
+
+df[['FirstName', 'LastName', 'Title']] = get_name_df(df)
+
+def get_unique_titles(df):
+    """Get unique titles in names e.g. Mr, Ms, the Countess, etc."""
+    names = list(df['Name'])
+    unique_titles = set([extract_name(n)[0] for n in names])
+    return unique_titles
+
+
 #  df.iloc[:, :5].head()
 #  df.iloc[:, 5:].head()
 
-# TODO: PassengerId is probably useless, but I haven't confirmed
+# PassengerId has no particular relationship to survival
 # TODO: If name indicates ethnic background, could be a predictor
 # Cabin not useful after extraction
 df = df.drop(['PassengerId', 'Cabin', 'Name'], axis=1)
@@ -114,6 +168,8 @@ sns.regplot(x='CabinNumber', y='Survived', data=df2, logistic=True)
 df3 = df[['Survived', 'CabinCode']].dropna()
 df3['CabinCode'] = df3['CabinCode'].astype('category')
 sns.catplot(x='CabinCode', y='Survived', data=df3, kind='bar')
+
+df2 = df[['Survived', 'Name']]
 
 
 def plot_cabin_codes(df):
